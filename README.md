@@ -2,18 +2,18 @@
 
 A local reservation service for testing tenant isolation, API contracts and transactional idempotency. Two synthetic tenants each start with five camera kits. Editors reserve stock; viewers can read their own tenant's records. A valid response from the wrong tenant is still a security failure.
 
-This first milestone uses PGlite, an embedded PostgreSQL implementation, so it runs without Docker or a database server. It exercises real SQL, constraints and transactions. It does **not** demonstrate multi-process concurrency or a production identity system.
+The default service uses PGlite for quick local setup. A PostgreSQL adapter exercises the same SQL through two independent service processes, with versioned migrations and database-level reservation coordination. Signed-token verification and a dashboard consumer Pact add identity and compatibility checks. All data is synthetic.
 
 ## Run the checks
 
 Use Node.js 24 and npm:
 
 ```sh
-npm ci --ignore-scripts
+npm ci
 npm run verify
 ```
 
-No browser download, account, API key or external test target is needed. API tests start an isolated loopback service on a free port and use a temporary database per test. Node tests cover session expiry, revocation, capacity, database reopening and rollback. Retries are disabled.
+No browser download, account, API key or external test target is needed. The full suite starts a temporary native PostgreSQL server using the locked embedded-postgres development dependency; installation runs its platform setup script. API tests start an isolated loopback service on a free port and use a temporary database per test. Node tests cover session expiry, revocation, capacity, database reopening and rollback. Retries are disabled.
 
 For an interactive service:
 
@@ -58,7 +58,7 @@ HTTP request -> demo session -> role check -> input schema
 - `src/store.ts` owns parameterized SQL, tenant predicates, stock constraints and idempotency transactions.
 - `tests/fixtures.ts` owns each test service and database lifecycle. There are no shared test accounts with mutable global datasets.
 
-The database transaction checks an existing `(tenant, request_key)`, decrements stock only if enough remains, then inserts the record and fingerprint. Any failure rolls the transaction back. A replay reads the original record without another decrement. Key scope is the tenant, not the login session. PGlite serializes transactions in one process; this is not evidence of safe coordination between independent service replicas.
+The database transaction locks the tenant/SKU inventory row, checks an existing `(tenant, request_key)`, decrements stock only if enough remains, then inserts the record and fingerprint. Any failure rolls the transaction back. A replay reads the original record without another decrement. Key scope is the tenant, not the login session. PGlite serializes transactions in one process. The PostgreSQL suite separately checks two Node processes against one database.
 
 See [the storage decision](docs/decisions/001-embedded-postgres.md) and [threat model](docs/threat-model.md).
 
@@ -74,7 +74,7 @@ See [the storage decision](docs/decisions/001-embedded-postgres.md) and [threat 
 - A deliberate test-only removal of the tenant predicate is caught by the same ownership assertion used for the real service.
 - Unexpected database failures return a generic 500 without internal details.
 
-Schema conformance is the first contract layer. There is no independent consumer/provider compatibility pipeline yet, so this project does not claim consumer-driven contract testing.
+Schema conformance is the first contract layer. The dashboard consumer additionally generates a Pact interaction from its own HTTP client and verifies it against the provider. It currently covers the inventory card, not every endpoint.
 
 ## Reports and debugging
 
@@ -86,8 +86,14 @@ If setup fails, check Node's major version and run `npm run check`. The compiler
 
 ## Boundaries and next milestones
 
-No OAuth/JWT issuer, token refresh, TLS, rate limiting, distributed idempotency, reservations cancellation, database migration versioning or load benchmark is implemented. The service binds only to loopback. A 5-second request/socket timeout and 8 KiB body limit bound local misuse; they are not a production denial-of-service defense.
+The service binds only to loopback. A 5-second request/socket timeout and 8 KiB body limit bound local misuse. There is no production issuer, token refresh, TLS, rate limiting, cancellation or deployment rollback system.
 
-Next: add a separate PostgreSQL service and run the same SQL invariants against it, then test two service processes, deployment migrations and connection failure recovery. Add consumer compatibility testing with a real second consumer. Define a repeatable load profile before choosing a performance gate. Keep observed results, environment and limitations together; do not invent benchmark gains.
+### PostgreSQL and issuer mode
+
+Set `DATABASE_URL` to use a PostgreSQL service instead of the embedded directory. Migrations run at startup and reject changed checksums. See [the coordination decision](docs/decisions/002-postgres-coordination.md). Run `npm run test:postgres` to repeat the isolated two-process checks.
+
+Set `JWT_PUBLIC_KEY_FILE` (ES256 public PEM), `JWT_ISSUER` and `JWT_AUDIENCE` together to verify externally signed tokens. Claims must include `sub`, `iat`, `exp`, a synthetic `tenant` (`alpha`/`beta`) and `role` (`editor`/`viewer`). The algorithm is restricted to ES256; issuer, audience, expiry and not-before are checked. Public demo session issuance/revocation is disabled in this mode. Key rotation and a live identity provider are outside this exercise.
+
+`npm run test:contract` checks the dashboard Pact. `npm run benchmark` records a bounded read workload without a performance threshold. See [measured results and limits](docs/verification.md). Next work should broaden provider states and write-load contention before claiming broader compatibility or capacity.
 
 All application data and scenarios are synthetic. Source is MIT licensed; installed dependencies retain their own licenses.
