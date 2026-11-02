@@ -1,4 +1,9 @@
-import { PGlite } from "@electric-sql/pglite";
+import {
+  embeddedDatabase,
+  postgresDatabase,
+  type Database,
+} from "./database.ts";
+import { migrate } from "./migrations.ts";
 import { randomUUID } from "node:crypto";
 import type {
   Reservation,
@@ -8,31 +13,31 @@ import type {
 import { Problem } from "./problem.ts";
 
 export async function openStore(path: string) {
-  const db = await PGlite.create(path);
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS inventory (
-      tenant TEXT NOT NULL CHECK (tenant IN ('alpha', 'beta')),
-      sku TEXT NOT NULL, available INTEGER NOT NULL CHECK (available >= 0),
-      PRIMARY KEY (tenant, sku)
-    );
-    CREATE TABLE IF NOT EXISTS reservations (
-      id UUID PRIMARY KEY, tenant TEXT NOT NULL,
-      request_key TEXT NOT NULL, fingerprint TEXT NOT NULL,
-      sku TEXT NOT NULL, quantity INTEGER NOT NULL CHECK (quantity BETWEEN 1 AND 5),
-      created_at TEXT NOT NULL, UNIQUE (tenant, request_key),
-      FOREIGN KEY (tenant, sku) REFERENCES inventory (tenant, sku)
-    );
-    INSERT INTO inventory (tenant, sku, available) VALUES
-      ('alpha', 'camera-kit', 5), ('beta', 'camera-kit', 5)
-      ON CONFLICT DO NOTHING;
-  `);
-  return new ReservationStore(db);
+  const db = await embeddedDatabase(path);
+  try {
+    await migrate(db);
+    return new ReservationStore(db);
+  } catch (error) {
+    await db.close();
+    throw error;
+  }
 }
+export async function openPostgresStore(connectionString: string) {
+  const db = postgresDatabase(connectionString);
+  try {
+    await migrate(db);
+    return new ReservationStore(db);
+  } catch (error) {
+    await db.close();
+    throw error;
+  }
+}
+
 const columns =
   'id::text AS id, tenant AS "tenantId", sku, quantity, created_at AS "createdAt"';
 export class ReservationStore {
-  private readonly db: PGlite;
-  constructor(db: PGlite) {
+  private readonly db: Database;
+  constructor(db: Database) {
     this.db = db;
   }
   async create(
@@ -45,6 +50,11 @@ export class ReservationStore {
       quantity: input.quantity,
     });
     return this.db.transaction(async (tx) => {
+      // All competing intents for this tenant/SKU serialize before key lookup.
+      await tx.query(
+        "SELECT available FROM inventory WHERE tenant=$1 AND sku=$2 FOR UPDATE",
+        [tenant, input.sku],
+      );
       const existing = await tx.query<Reservation & { fingerprint: string }>(
         `SELECT ${columns}, fingerprint FROM reservations WHERE tenant=$1 AND request_key=$2`,
         [tenant, key],
