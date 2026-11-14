@@ -50,7 +50,15 @@ function pageNumber(value: string | null, fallback: number, max: number) {
     throw new Problem(400, "Invalid pagination.");
   return Number(value);
 }
-export function createApp(store: ReservationStore, sessions = new Sessions()) {
+export function createApp(
+  store: ReservationStore,
+  sessions = new Sessions(),
+  options: {
+    authenticate?: (
+      header: string | undefined,
+    ) => Promise<{ tenant: "alpha" | "beta"; role: "editor" | "viewer" }>;
+  } = {},
+) {
   const server = createServer((req, res) => {
     void handle(req, res);
   });
@@ -80,6 +88,11 @@ export function createApp(store: ReservationStore, sessions = new Sessions()) {
           throw new Problem(403, "Foreign browser origin denied.");
       }
       if (method === "POST" && path === "/sessions") {
+        if (options.authenticate)
+          throw new Problem(
+            405,
+            "Demo sessions are disabled in issuer-token mode.",
+          );
         const data = await body(req);
         if (!validSession(data))
           throw new Problem(400, "Invalid session fields.");
@@ -91,8 +104,15 @@ export function createApp(store: ReservationStore, sessions = new Sessions()) {
         });
         return;
       }
-      const identity = sessions.authenticate(req.headers.authorization);
+      const identity = options.authenticate
+        ? await options.authenticate(req.headers.authorization)
+        : sessions.authenticate(req.headers.authorization);
       if (method === "DELETE" && path === "/sessions") {
+        if (options.authenticate)
+          throw new Problem(
+            405,
+            "Token lifecycle belongs to the configured issuer.",
+          );
         sessions.revoke(req.headers.authorization);
         send(res, 204);
         return;

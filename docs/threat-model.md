@@ -14,3 +14,9 @@ Assets: tenant-owned reservation records, inventory counts and idempotency inten
 | Report retains credentials | No traces or raw HTTP logging; synthetic data only | Review future reporter changes before use with sensitive systems |
 
 No employer data, URLs, workflows or application models are used. No authentication tokens, database directories or generated reports belong in Git. Dependency audit results cover known package advisories at the time checked, not a security certification.
+
+## Signed identity and shared storage
+
+Optional issuer mode accepts only ES256 signatures from the configured public key and requires the configured issuer/audience, expiry, subject and issued-at claims. Tests deny unsigned tokens, foreign signatures, wrong issuer/audience, expired/future tokens and unsupported tenant/role values. They also check viewer writes and cross-tenant reads using valid signed credentials. This verifies resource-server policy; it does not operate an identity provider or demonstrate key rotation.
+
+With PostgreSQL, tenant/SKU locks coordinate stock and replay across service processes. Parameterized tenant predicates still enforce record ownership. Generated development database credentials stay in the test process environment and are not retained in reports.
