@@ -10,7 +10,10 @@ export interface SqlClient {
 }
 export interface Database extends SqlClient {
   kind: "embedded" | "postgres";
-  transaction<T>(work: (client: SqlClient) => Promise<T>): Promise<T>;
+  transaction<T>(
+    work: (client: SqlClient) => Promise<T>,
+    options?: { isolation: "repeatable-read" },
+  ): Promise<T>;
   close(): Promise<void>;
 }
 export async function embeddedDatabase(path: string): Promise<Database> {
@@ -69,11 +72,18 @@ export function postgresDatabase(connectionString: string): Database {
       const result = await pool.query<Row>(sql, values);
       return { rows: result.rows ?? [] };
     },
-    async transaction<T>(work: (client: SqlClient) => Promise<T>) {
+    async transaction<T>(
+      work: (client: SqlClient) => Promise<T>,
+      options?: { isolation: "repeatable-read" },
+    ) {
       const client = await pool.connect();
       let releaseError: Error | undefined;
       try {
-        await client.query("BEGIN");
+        await client.query(
+          options?.isolation === "repeatable-read"
+            ? "BEGIN ISOLATION LEVEL REPEATABLE READ"
+            : "BEGIN",
+        );
         const result = await work(clientQueries(client));
         await client.query("COMMIT");
         return result;
