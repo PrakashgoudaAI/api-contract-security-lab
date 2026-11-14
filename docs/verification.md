@@ -1,20 +1,20 @@
 # Verification record
 
-Verified locally on 2 November 2026 using Node.js 24.4.0 on macOS (Apple M4 Pro, 12 logical CPUs).
+Verified locally on 14 November 2026 using Node.js 24.4.0 on macOS (Apple M4 Pro, 12 logical CPUs).
 
 `npm run verify` passed after the PostgreSQL, signed-token and consumer additions:
 
 - TypeScript, promise-handling lint and source formatting checks passed.
-- Six unit tests passed.
+- Seven unit tests passed.
 - Eighteen Playwright API tests passed, with retries disabled.
-- Six PostgreSQL tests passed (including the parent suite): concurrent migration startup, requests through two independent Node service processes, replay/conflicting intent, competing stock reservations, database restart recovery and migration checksum rejection.
+- Eleven PostgreSQL tests passed (including two parent suites): concurrent migration startup, requests through two independent Node service processes, replay/conflicting intent, competing stock reservations, database restart recovery migration checksum rejection, a concurrent write between pagination queries, missing/reordered/duplicate migration versions, and transactional migration rollback.
 - Two consumer contract tests passed. A real dashboard client generated a Pact interaction; verification replayed it against the service. Parser negative controls rejected renamed fields, string quantities and negative stock.
 
 A source-only copy in a directory containing a space also passed `npm ci` and the full verification command with fresh dependencies.
 
 The database tests start a native PostgreSQL server in a test-owned temporary directory. They use loopback, generated credentials and no operating-system user creation. This is real client/server SQL; it is still one host and does not demonstrate network partition recovery or crash durability. Restart coverage is an orderly stop/start. PGlite remains the zero-server default for interactive use.
 
-The first public milestone's GitHub run passed: [API invariants run](https://github.com/PrakashgoudaAI/api-contract-security-lab/actions/runs/41473128245). That run predates these additions. Linux execution of the expanded milestone must be assessed from its own hosted run.
+The first public milestone's GitHub run passed: [API invariants run](https://github.com/PrakashgoudaAI/api-contract-security-lab/actions/runs/41473128245). That run predates these additions. The expanded PostgreSQL and consumer milestone also passed [its hosted run](https://github.com/PrakashgoudaAI/api-contract-security-lab/actions/runs/43571488454). The subsequent snapshot and migration regression changes require their own hosted run.
 
 ## Read workload baseline
 
@@ -27,3 +27,7 @@ One local execution completed 200 reads with zero errors: elapsed 30.97 ms, p50 
 CI retains API JUnit/HTML and the generated consumer Pact for seven days. The Pact includes a synthetic placeholder token; the provider verifier supplies its temporary session at runtime. API traces are disabled to avoid retaining real bearer values. Test output contains no production data.
 
 Dependency installation runs the locked native setup scripts used by embedded-postgres and Pact. The full local checks passed with these installed dependencies; native binaries and runner permissions remain platform requirements.
+
+## Audit regression coverage
+
+See [snapshot and migration decisions](decisions/003-read-snapshots-and-migration-integrity.md) and the [failure walkthrough](walkthrough.md). All counts above are local results, rather than a claim that an unpublished branch has passed hosted CI.

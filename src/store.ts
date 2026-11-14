@@ -101,20 +101,23 @@ export class ReservationStore {
     return result.rows[0];
   }
   async list(tenant: Tenant, page: number, pageSize: number) {
-    return this.db.transaction(async (tx) => {
-      const count = await tx.query<{ total: number }>(
-        "SELECT count(*)::integer AS total FROM reservations WHERE tenant=$1",
-        [tenant],
-      );
-      const total = count.rows[0]!.total;
-      if (page > Math.max(1, Math.ceil(total / pageSize)))
-        throw new Problem(400, "Page is outside the result set.");
-      const result = await tx.query<Reservation>(
-        `SELECT ${columns} FROM reservations WHERE tenant=$1 ORDER BY created_at, id LIMIT $2 OFFSET $3`,
-        [tenant, pageSize, (page - 1) * pageSize],
-      );
-      return { items: result.rows, total, page, pageSize };
-    });
+    return this.db.transaction(
+      async (tx) => {
+        const count = await tx.query<{ total: number }>(
+          "SELECT count(*)::integer AS total FROM reservations WHERE tenant=$1",
+          [tenant],
+        );
+        const total = count.rows[0]!.total;
+        if (page > Math.max(1, Math.ceil(total / pageSize)))
+          throw new Problem(400, "Page is outside the result set.");
+        const result = await tx.query<Reservation>(
+          `SELECT ${columns} FROM reservations WHERE tenant=$1 ORDER BY created_at, id LIMIT $2 OFFSET $3`,
+          [tenant, pageSize, (page - 1) * pageSize],
+        );
+        return { items: result.rows, total, page, pageSize };
+      },
+      { isolation: "repeatable-read" },
+    );
   }
   async available(tenant: Tenant) {
     const result = await this.db.query<{ available: number }>(
