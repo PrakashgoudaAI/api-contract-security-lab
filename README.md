@@ -97,3 +97,7 @@ Set `JWT_PUBLIC_KEY_FILE` (ES256 public PEM), `JWT_ISSUER` and `JWT_AUDIENCE` to
 `npm run test:contract` checks the dashboard Pact. `npm run benchmark` records a bounded read workload without a performance threshold. See [measured results and limits](docs/verification.md). Next work should broaden provider states and write-load contention before claiming broader compatibility or capacity.
 
 All application data and scenarios are synthetic. Source is MIT licensed; installed dependencies retain their own licenses.
+
+## Quality strategy
+
+See the [risk-based quality strategy](docs/quality-strategy.md) for test boundaries, data ownership, release checks and the operational evidence still needed for a deployed service.

@@ -22,8 +22,10 @@ export function jwtAuthenticator(
         currentDate: now(),
       });
       if (
-        !["alpha", "beta"].includes(String(payload.tenant)) ||
-        !["editor", "viewer"].includes(String(payload.role))
+        typeof payload.tenant !== "string" ||
+        typeof payload.role !== "string" ||
+        !["alpha", "beta"].includes(payload.tenant) ||
+        !["editor", "viewer"].includes(payload.role)
       )
         throw new Error("Invalid identity claims.");
       return { tenant: payload.tenant as Tenant, role: payload.role as Role };

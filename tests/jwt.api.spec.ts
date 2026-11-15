@@ -81,6 +81,19 @@ test("issuer-mode HTTP authorization rejects invalid claims and preserves tenant
       await signed({}, wrong.privateKey),
       await sign({ tenant: "gamma" }),
       await sign({ role: "admin" }),
+      ...(await Promise.all(
+        ["tenant", "role"].flatMap((claim) =>
+          [
+            undefined,
+            null,
+            0,
+            true,
+            {},
+            [],
+            [claim === "tenant" ? "alpha" : "viewer"],
+          ].map((value) => sign({ [claim]: value })),
+        ),
+      )),
       "unsigned.payload.value",
     ];
     for (const token of invalid)

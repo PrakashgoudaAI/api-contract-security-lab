@@ -14,7 +14,7 @@ A source-only copy in a directory containing a space also passed `npm ci` and th
 
 The database tests start a native PostgreSQL server in a test-owned temporary directory. They use loopback, generated credentials and no operating-system user creation. This is real client/server SQL; it is still one host and does not demonstrate network partition recovery or crash durability. Restart coverage is an orderly stop/start. PGlite remains the zero-server default for interactive use.
 
-The first public milestone's GitHub run passed: [API invariants run](https://github.com/PrakashgoudaAI/api-contract-security-lab/actions/runs/41473128245). That run predates these additions. The expanded PostgreSQL and consumer milestone also passed [its hosted run](https://github.com/PrakashgoudaAI/api-contract-security-lab/actions/runs/43571488454). The subsequent snapshot and migration regression changes require their own hosted run.
+The first public milestone's GitHub run passed: [API invariants run](https://github.com/PrakashgoudaAI/api-contract-security-lab/actions/runs/41473128245). That run predates these additions. The expanded PostgreSQL and consumer milestone also passed [its hosted run](https://github.com/PrakashgoudaAI/api-contract-security-lab/actions/runs/43571488454). The snapshot and migration regression changes passed [run 43613117653](https://github.com/PrakashgoudaAI/api-contract-security-lab/actions/runs/43613117653).
 
 ## Read workload baseline
 
@@ -30,4 +30,10 @@ Dependency installation runs the locked native setup scripts used by embedded-po
 
 ## Audit regression coverage
 
-See [snapshot and migration decisions](decisions/003-read-snapshots-and-migration-integrity.md) and the [failure walkthrough](walkthrough.md). All counts above are local results, rather than a claim that an unpublished branch has passed hosted CI.
+See [snapshot and migration decisions](decisions/003-read-snapshots-and-migration-integrity.md) and the [failure walkthrough](walkthrough.md). Counts above describe the recorded local run. Hosted evidence is linked separately; later changes require their own checks.
+
+## Signed-claim shape regression — 15 November 2026
+
+The HTTP regression failed before the correction: a correctly signed array-shaped identity returned 200 where 401 was required. Identity claims now require string primitives before allowed-value checks. The test rejects missing, null, numeric, boolean, object, empty-array and allowed-value-array shapes for both tenant and role, while retaining valid editor/viewer and tenant-boundary controls. This closes a shape-validation defect; no signature bypass or privilege escalation was demonstrated.
+
+The complete local verification passed on Node 24.4.0: type/lint/format checks, seven unit tests, 18 API tests, 11 PostgreSQL tests (including parent suites) and two consumer-contract tests. Counts refer to tests, not individual assertions or malformed tokens. Hosted results for this change must be checked separately.

@@ -6,8 +6,8 @@ Assets: tenant-owned reservation records, inventory counts and idempotency inten
 | --- | --- | --- |
 | Tenant B requests tenant A's ID | Tenant predicate and identical unknown/foreign 404; negative-control test removes predicate | Not a production identity assessment |
 | Viewer submits a reservation | Server role check before mutation; four-role matrix | Public issuer allows selecting roles for demonstrations |
-| Caller supplies tenantId | Strict request schema rejects extra fields; tenant comes from session | Real token audience/issuer checks not implemented |
-| Duplicate or uncertain request | Tenant-scoped key, canonical fingerprint and SQL transaction | No separate-process race evidence |
+| Caller supplies tenantId | Strict request schema rejects extra fields; tenant comes from session | Signed issuer mode checks issuer/audience; no live identity provider or key rotation |
+| Duplicate or uncertain request | Tenant-scoped key, canonical fingerprint and SQL transaction | Two service processes tested on one host; no network-partition or crash-recovery evidence |
 | Invalid quantity or stock exhaustion | JSON schema plus DB constraints; rollback tests | No real product catalogue |
 | Unbounded input | 8 KiB cap, 5-second request/socket timeout, bounded pagination | No rate limiter or load-based defense |
 | Internal database exception | Generic 500 and fixed diagnostic text; fault injection | No production observability pipeline |
